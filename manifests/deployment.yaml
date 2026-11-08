@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: refs-demo
+  labels:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/instance: web
+    app.kubernetes.io/version: "1.29"
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: refs-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+      app.kubernetes.io/instance: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+        app.kubernetes.io/instance: web
+        app.kubernetes.io/version: "1.29"
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: refs-demo
+    spec:
+      serviceAccountName: web
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: docker.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: web-config-v1
+                  key: LOG_LEVEL
+            # Created out of band (never committed); see README.
+            - name: API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: web-credentials
+                  key: api-token
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 200m, memory: 64Mi }
+          startupProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            failureThreshold: 15
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 5
+          volumeMounts:
+            - { name: config, mountPath: /etc/nginx/conf.d, readOnly: true }
+            # nginx needs writable cache, pid and temp paths on a read-only root.
+            - { name: tmp, mountPath: /tmp }
+            - { name: cache, mountPath: /var/cache/nginx }
+      volumes:
+        - name: config
+          configMap:
+            name: web-config-v1
+            items:
+              - { key: default.conf, path: default.conf }
+        - name: tmp
+          emptyDir: { sizeLimit: 16Mi }
+        - name: cache
+          emptyDir: { sizeLimit: 32Mi }
