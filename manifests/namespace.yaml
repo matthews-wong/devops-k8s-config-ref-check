@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: refs-demo
+  labels:
+    app.kubernetes.io/name: refs-demo
+    app.kubernetes.io/part-of: refs-demo
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.31
