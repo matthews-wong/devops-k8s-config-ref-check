@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config-v1
+  namespace: refs-demo
+  labels:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/instance: web
+    app.kubernetes.io/version: "1.29"
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: refs-demo
+# Immutable and versioned by name: a change ships as web-config-v2 and a
+# Deployment edit, so pods never see a half-updated file.
+immutable: true
+data:
+  LOG_LEVEL: info
+  default.conf: |
+    server {
+      listen 8080;
+      location / { return 200 "ok\n"; }
+    }
