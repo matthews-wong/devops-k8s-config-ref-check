@@ -1,4 +1,6 @@
+import contextlib
 import copy
+import io
 import os
 import unittest
 
@@ -136,6 +138,19 @@ class CheckRefsTest(unittest.TestCase):
             body["spec"]["template"]["metadata"]["labels"]["app.kubernetes.io/name"] = "api"
         found = self.problems(mutate(load_manifests(), "Deployment", drift))
         self.assertTrue(any("does not match pod template labels" in m for m in found))
+
+
+class MainTest(unittest.TestCase):
+    def run_main(self, *args):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return check_refs.main(list(args))
+
+    def test_exit_codes(self):
+        deployment = os.path.join(MANIFESTS, "deployment.yaml")
+        self.assertEqual(self.run_main(deployment), 1)
+        self.assertEqual(self.run_main("--external", "Secret/web-credentials", MANIFESTS + "/service.yaml"), 1)
+        files = sorted(os.path.join(MANIFESTS, n) for n in os.listdir(MANIFESTS))
+        self.assertEqual(self.run_main("--external", "Secret/web-credentials", *files), 0)
 
 
 if __name__ == "__main__":
